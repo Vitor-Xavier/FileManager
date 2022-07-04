@@ -1,6 +1,9 @@
-﻿using FileManager.Options;
+﻿using FileManager.Context;
+using FileManager.Options;
+using FileManager.Repositories.StorageFiles;
 using FileManager.Services.Data;
 using FileManager.Services.Media;
+using Microsoft.EntityFrameworkCore;
 
 namespace FileManager.DependencyInjection
 {
@@ -8,6 +11,10 @@ namespace FileManager.DependencyInjection
     {
         public static void RegisterServices(IServiceCollection services, IConfiguration configuration)
         {
+            services.AddDbContextPool<FileManagerContext>(options =>
+                options.EnableSensitiveDataLogging()
+                    .UseSqlServer(configuration.GetConnectionString("FileManagerDatabase")));
+
             RegisterApplicationServices(services);
             RegisterRepositories(services);
             RegisterOptions(services, configuration);
@@ -21,7 +28,7 @@ namespace FileManager.DependencyInjection
 
         public static void RegisterRepositories(IServiceCollection services)
         {
-
+            services.AddScoped<IStorageFileRepository, StorageFileRepository>();
         }
 
         public static void RegisterOptions(IServiceCollection services, IConfiguration configuration)
