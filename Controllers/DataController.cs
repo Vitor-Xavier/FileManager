@@ -1,4 +1,5 @@
 ﻿using FileManager.DTO;
+using FileManager.Helpers;
 using FileManager.Services.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -14,36 +15,78 @@ namespace FileManager.Controllers
 
         public DataController(IDataService service) => _service = service;
 
+        /// <summary>
+        /// Consulta arquivo de dados pelo nome.
+        /// </summary>
+        /// <param name="fileName">Nome do arquivo de dados</param>
+        /// <param name="downloadName">Nome sugerido para download</param>
+        /// <param name="disposition">attachment ou inline</param>
+        /// <returns>Arquivo de Dados</returns>
         [HttpGet("{fileName}")]
-        public ActionResult<FileManagetDto> ReadFile(string fileName)
+        public ActionResult<FileManagetDto> ReadFile(string fileName, string downloadName, string disposition = "attachment")
         {
-            var result = _service.ReadFile(fileName);
-            return PhysicalFile(result.FilePath, result.ContentType);
+            var result = _service.ReadDataFile(fileName);
+
+            if (disposition == "inline")
+            {
+                Response.Headers.Add("Content-Disposition", FileManagerHelper.GetContentDisposition(downloadName ?? result.FileName, "inline"));
+                return PhysicalFile(result.FilePath, result.ContentType, true);
+            }
+            return PhysicalFile(result.FilePath, result.ContentType, downloadName, true);
         }
 
+        /// <summary>
+        /// Consulta arquivo de dados temporário pelo nome.
+        /// </summary>
+        /// <param name="fileName">Nome do arquivo de dados temporário</param>
+        /// <param name="downloadName">Nome sugerido para download</param>
+        /// <param name="disposition">attachment ou inline</param>
+        /// <returns>Arquivo de Dados</returns>
         [HttpGet("Temp/{fileName}")]
-        public ActionResult<FileManagetDto> ReadTempFile(string fileName)
+        public ActionResult<FileManagetDto> ReadTempFile(string fileName, string downloadName, string disposition = "attachment")
         {
             var result = _service.ReadTempFile(fileName);
-            return PhysicalFile(result.FilePath, result.ContentType);
+
+            if (disposition == "inline")
+            {
+                Response.Headers.Add("Content-Disposition", FileManagerHelper.GetContentDisposition(downloadName ?? result.FileName, "inline"));
+                return PhysicalFile(result.FilePath, result.ContentType, true);
+            }
+            return PhysicalFile(result.FilePath, result.ContentType, downloadName, true);
         }
 
+        /// <summary>
+        /// Carrega arquivo de dados.
+        /// </summary>
+        /// <param name="file">Arquivo de Dados</param>
+        /// <param name="cancellationToken">Token de cancelamento da requisição</param>
+        /// <returns></returns>
         [HttpPost]
-        public async Task<IActionResult> UploadData(IFormFile file, CancellationToken cancellationToken)
+        public async Task<ActionResult<FileManagerResponseDto>> UploadData(IFormFile file, CancellationToken cancellationToken)
         {
-            var result = await _service.UploadFile(file, cancellationToken);
+            var result = await _service.UploadDataFile(file, cancellationToken);
             return CreatedAtAction(nameof(ReadFile), new { fileName = result.FileName }, result);
         }
 
+        /// <summary>
+        /// Carrega arquivo de dados temporário.
+        /// </summary>
+        /// <param name="file">Arquivo de Dados Temporario</param>
+        /// <param name="cancellationToken">Token de cancelamento da requisição</param>
+        /// <returns></returns>
         [HttpPost("Temp")]
-        public async Task<IActionResult> UploadTempData(IFormFile file, CancellationToken cancellationToken)
+        public async Task<ActionResult<FileManagerResponseDto>> UploadTempData(IFormFile file, CancellationToken cancellationToken)
         {
             var result = await _service.UploadTempFile(file, cancellationToken);
             return CreatedAtAction(nameof(ReadTempFile), new { fileName = result.FileName }, result);
         }
 
+        /// <summary>
+        /// Carrega grande arquivo de dados.
+        /// </summary>
+        /// <returns></returns>
         [HttpPost("Large")]
-        public async Task<IActionResult> UploadLargeData()
+        public async Task<ActionResult<FileManagerResponseDto>> UploadLargeData()
         {
             var request = HttpContext.Request;
 
@@ -57,13 +100,16 @@ namespace FileManager.Controllers
             var reader = new MultipartReader(mediaTypeHeader.Boundary.Value, Request.Body);
             var section = await reader.ReadNextSectionAsync();
 
-            var result = await _service.UploadLargeFile(reader, section);
+            var result = await _service.UploadLargeDataFile(reader, section);
             return CreatedAtAction(nameof(ReadFile), new { fileName = result.FileName }, result);
         }
 
-
+        /// <summary>
+        /// Carrega grande arquivo de dados temporário.
+        /// </summary>
+        /// <returns></returns>
         [HttpPost("Temp/Large")]
-        public async Task<IActionResult> UploadLargeTempData()
+        public async Task<ActionResult<FileManagerResponseDto>> UploadLargeTempData()
         {
             var request = HttpContext.Request;
 
@@ -81,10 +127,15 @@ namespace FileManager.Controllers
             return CreatedAtAction(nameof(ReadTempFile), new { fileName = result.FileName }, result);
         }
 
+        /// <summary>
+        /// Remove arquivo de dados.
+        /// </summary>
+        /// <param name="fileName">Nome do Arquivo de Dados</param>
+        /// <param name="cancellationToken">Token de cancelamento da requisição</param>
         [HttpDelete("{fileName}")]
-        public IActionResult DeleteData(string fileName)
+        public async Task<IActionResult> DeleteData(string fileName, CancellationToken cancellationToken)
         {
-            _service.DeleteFile(fileName);
+            await _service.DeleteDataFile(fileName, cancellationToken);
             return NoContent();
         }
     }

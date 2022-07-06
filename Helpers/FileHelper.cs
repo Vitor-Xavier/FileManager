@@ -18,7 +18,7 @@ namespace FileManager.Helpers
 
             var provider = new FileExtensionContentTypeProvider();
             if (!provider.TryGetContentType(filePath, out string contentType))
-                throw new FileLoadException("Arquivo em formato não reconhecido");
+                throw new BadHttpRequestException("Arquivo em formato não reconhecido");
 
             return new FileManagetDto(trustedFileName, filePath, contentType);
         }
@@ -27,7 +27,7 @@ namespace FileManager.Helpers
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (file.Length == 0) throw new ArgumentException("Arquivo vazio");
+            if (file.Length == 0) throw new BadHttpRequestException("Arquivo vazio");
 
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -35,17 +35,17 @@ namespace FileManager.Helpers
             string trustedFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(file.FileName));
             var filePath = Path.Combine(path, trustedFileName);
 
-            using var stream = File.Create(filePath);
-            await file.CopyToAsync(stream, cancellationToken);
-
             var provider = new FileExtensionContentTypeProvider();
             if (!provider.TryGetContentType(filePath, out string contentType))
-                throw new FileLoadException("Arquivo em formato não reconhecido");
+                throw new BadHttpRequestException("Arquivo em formato não reconhecido");
+
+            using var stream = File.Create(filePath);
+            await file.CopyToAsync(stream, cancellationToken);
 
             return new FileManagetDto(trustedFileName, filePath, contentType);
         }
 
-        public static async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path)
+        public static async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path, Action<string> validateType)
         {
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -60,19 +60,20 @@ namespace FileManager.Helpers
                         (!string.IsNullOrEmpty(contentDisposition.FileName.Value) ||
                         !string.IsNullOrEmpty(contentDisposition.FileNameStar.Value)))
                     {
+                        string trustedFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(contentDisposition.FileName.Value));
+                        string filePath = Path.Combine(path, trustedFileName);
+
+                        var provider = new FileExtensionContentTypeProvider();
+                        if (!provider.TryGetContentType(filePath, out string contentType))
+                            throw new BadHttpRequestException("Arquivo em formato não reconhecido");
+                        if (validateType is not null) validateType(trustedFileName);
+
                         byte[] fileArray;
                         using (var memoryStream = new MemoryStream())
                         {
                             await section.Body.CopyToAsync(memoryStream);
                             fileArray = memoryStream.ToArray();
                         }
-
-                        string trustedFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(contentDisposition.FileName.Value));
-                        string filePath = Path.Combine(path, trustedFileName);
-
-                        var provider = new FileExtensionContentTypeProvider();
-                        if (!provider.TryGetContentType(filePath, out string contentType))
-                            throw new FileLoadException("Arquivo em formato não reconhecido");
 
                         using var fileStream = File.Create(filePath);
                         await fileStream.WriteAsync(fileArray);
@@ -83,7 +84,7 @@ namespace FileManager.Helpers
                 section = await reader.ReadNextSectionAsync();
             }
 
-            throw new FileLoadException("Erro ao carregar arquivo");
+            throw new BadHttpRequestException("Erro ao carregar arquivo");
         }
 
         public static void DeleteFile(string fileName, string path)
