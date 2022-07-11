@@ -23,16 +23,16 @@ namespace FileManager.Controllers
         /// <param name="disposition">attachment ou inline</param>
         /// <returns>Arquivo de Dados</returns>
         [HttpGet("{fileName}")]
-        public ActionResult<FileManagetDto> ReadFile(string fileName, string downloadName, string disposition = "attachment")
+        public ActionResult<FileManagetDto> ReadFile(string fileName, string downloadName, Dispositions disposition)
         {
             var result = _service.ReadDataFile(fileName);
 
-            if (disposition == "inline")
+            if (disposition == Dispositions.Inline)
             {
                 Response.Headers.Add("Content-Disposition", FileManagerHelper.GetContentDisposition(downloadName ?? result.FileName, "inline"));
                 return PhysicalFile(result.FilePath, result.ContentType, true);
             }
-            return PhysicalFile(result.FilePath, result.ContentType, downloadName, true);
+            return PhysicalFile(result.FilePath, result.ContentType, disposition == Dispositions.Attachment ? downloadName ?? result.FileName : downloadName, true);
         }
 
         /// <summary>
@@ -43,16 +43,16 @@ namespace FileManager.Controllers
         /// <param name="disposition">attachment ou inline</param>
         /// <returns>Arquivo de Dados</returns>
         [HttpGet("Temp/{fileName}")]
-        public ActionResult<FileManagetDto> ReadTempFile(string fileName, string downloadName, string disposition = "attachment")
+        public ActionResult<FileManagetDto> ReadTempFile(string fileName, string downloadName, Dispositions disposition)
         {
             var result = _service.ReadTempFile(fileName);
 
-            if (disposition == "inline")
+            if (disposition == Dispositions.Inline)
             {
                 Response.Headers.Add("Content-Disposition", FileManagerHelper.GetContentDisposition(downloadName ?? result.FileName, "inline"));
                 return PhysicalFile(result.FilePath, result.ContentType, true);
             }
-            return PhysicalFile(result.FilePath, result.ContentType, downloadName, true);
+            return PhysicalFile(result.FilePath, result.ContentType, disposition == Dispositions.Attachment ? downloadName ?? result.FileName : downloadName, true);
         }
 
         /// <summary>
