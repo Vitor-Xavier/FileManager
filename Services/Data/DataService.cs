@@ -22,10 +22,19 @@ namespace FileManager.Services.Data
             _storageFileRepository = storageFileRepository;
         }
 
+        #region Read
         public FileManagetDto ReadDataFile(string fileName) => ReadFile(fileName, _options.BasePath);
 
         public FileManagetDto ReadTempFile(string fileName) => ReadFile(fileName, _options.TempPath);
 
+        private static FileManagetDto ReadFile(string fileName, string path)
+        {
+            string trustedFileName = WebUtility.HtmlEncode(fileName);
+            return FileHelper.ReadFile(trustedFileName, path);
+        }
+        #endregion
+
+        #region Upload
         public async Task<FileManagerResponseDto> UploadDataFile(IFormFile file, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -47,10 +56,27 @@ namespace FileManager.Services.Data
 
         public async Task<FileManagerResponseDto> UploadTempFile(IFormFile file, CancellationToken cancellationToken = default)
         {
-            var fileData = await UploadFile(file, _options.BasePath, cancellationToken);
+            var fileData = await UploadFile(file, _options.TempPath, cancellationToken);
             return new FileManagerResponseDto(fileData.FileName);
         }
 
+        private async Task<FileManagetDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string trustedFileName = WebUtility.HtmlEncode(file.FileName);
+            var provider = new FileExtensionContentTypeProvider();
+            if (!provider.TryGetContentType(trustedFileName, out string contentType) || !_options.AllowedTypes.Contains(contentType))
+                throw new BadHttpRequestException("Formato do arquivo não permitido");
+
+            if (file.Length > _options.FileSizeLimit)
+                throw new BadHttpRequestException("Tamanho do arquivo excede o limite permitido");
+
+            return await FileHelper.UploadFile(file, path, cancellationToken);
+        }
+        #endregion
+
+        #region Upload Stream
         public async Task<FileManagerResponseDto> UploadLargeDataFile(MultipartReader reader, MultipartSection section)
         {
             var fileData = await UploadLargeFile(reader, section, _options.BasePath);
@@ -70,31 +96,8 @@ namespace FileManager.Services.Data
 
         public async Task<FileManagerResponseDto> UploadLargeTempFile(MultipartReader reader, MultipartSection section)
         {
-            var fileData = await UploadLargeFile(reader, section, _options.BasePath);
+            var fileData = await UploadLargeFile(reader, section, _options.TempPath);
             return new FileManagerResponseDto(fileData.FileName);
-        }
-
-        public async Task DeleteDataFile(string fileName, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            DeleteFile(fileName, _options.BasePath);
-            var storageFile = await _storageFileRepository.GetStorageFileByName(fileName, CancellationToken.None);
-            await _storageFileRepository.Delete(storageFile, CancellationToken.None);
-        }
-
-        private FileManagetDto ReadFile(string fileName, string path) => FileHelper.ReadFile(fileName, path);
-
-        private async Task<FileManagetDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            string trustedFileName = WebUtility.HtmlEncode(file.FileName);
-            var provider = new FileExtensionContentTypeProvider();
-            if (!provider.TryGetContentType(trustedFileName, out string contentType) || !_options.AllowedTypes.Contains(contentType))
-                throw new BadHttpRequestException("Formato do arquivo não permitido");
-
-            return await FileHelper.UploadFile(file, path, cancellationToken);
         }
 
         private async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path)
@@ -104,10 +107,27 @@ namespace FileManager.Services.Data
                 if (!_options.AllowedTypes.Contains(contentType))
                     throw new BadHttpRequestException("Formato do arquivo não permitido");
             }
+            void validateSize(long fileSize)
+            {
+                if (fileSize > _options.FileSizeLimit)
+                    throw new BadHttpRequestException("Tamanho do arquivo excede o permitido");
+            }
 
-            return await FileHelper.UploadLargeFile(reader, section, path, validateType);
+            return await FileHelper.UploadLargeFile(reader, section, path, validateType, validateSize);
+        }
+        #endregion
+
+        #region Delete
+        public async Task DeleteDataFile(string fileName, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            DeleteFile(fileName, _options.BasePath);
+            var storageFile = await _storageFileRepository.GetStorageFileByName(fileName, CancellationToken.None);
+            await _storageFileRepository.Delete(storageFile, CancellationToken.None);
         }
 
-        private void DeleteFile(string fileName, string path) => FileHelper.DeleteFile(fileName, path);
+        private static void DeleteFile(string fileName, string path) => FileHelper.DeleteFile(fileName, path);
+        #endregion
     }
 }

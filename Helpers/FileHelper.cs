@@ -45,7 +45,7 @@ namespace FileManager.Helpers
             return new FileManagetDto(trustedFileName, filePath, contentType);
         }
 
-        public static async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path, Action<string> validateType)
+        public static async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path, Action<string> validateType, Action<long> validateSize)
         {
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -67,6 +67,7 @@ namespace FileManager.Helpers
                         if (!provider.TryGetContentType(filePath, out string contentType))
                             throw new BadHttpRequestException("Arquivo em formato não reconhecido");
                         if (validateType is not null) validateType(trustedFileName);
+                        if (validateSize is not null) validateSize(section.Body.Length);
 
                         byte[] fileArray;
                         using (var memoryStream = new MemoryStream())
