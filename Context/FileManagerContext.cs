@@ -7,6 +7,8 @@ namespace FileManager.Context
     {
         public FileManagerContext(DbContextOptions<FileManagerContext> options) : base(options) { }
 
+        public DbSet<User> Users { get; set; }
+
         public DbSet<StorageFile> StorageFiles { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

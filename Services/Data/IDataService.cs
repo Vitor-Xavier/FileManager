@@ -1,15 +1,16 @@
 ﻿using FileManager.DTO;
 using Microsoft.AspNetCore.WebUtilities;
+using FileAccess = FileManager.Models.FileAccess;
 
 namespace FileManager.Services.Data
 {
     public interface IDataService
     {
-        FileManagetDto ReadDataFile(string fileName);
+        Task<FileManagerDto> ReadDataFile(string fileName, CancellationToken cancellationToken = default);
 
-        FileManagetDto ReadTempFile(string fileName);
+        FileManagerDto ReadTempFile(string fileName);
 
-        Task<FileManagerResponseDto> UploadDataFile(IFormFile file, CancellationToken cancellationToken = default);
+        Task<FileManagerResponseDto> UploadDataFile(IFormFile file, FileAccess access, CancellationToken cancellationToken = default);
 
         Task<FileManagerResponseDto> UploadTempFile(IFormFile file, CancellationToken cancellationToken = default);
 

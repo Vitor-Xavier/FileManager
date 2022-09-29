@@ -4,6 +4,7 @@ using FileManager.Services.Media;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
+using FileAccess = FileManager.Models.FileAccess;
 
 namespace FileManager.Controllers
 {
@@ -23,9 +24,9 @@ namespace FileManager.Controllers
         /// <param name="disposition">attachment ou inline</param>
         /// <returns>Arquivo de Dados</returns>
         [HttpGet("{fileName}")]
-        public ActionResult<FileManagetDto> ReadFile(string fileName, string downloadName, Dispositions disposition)
+        public async Task<ActionResult<FileManagerDto>> ReadFile(string fileName, string downloadName, Dispositions disposition)
         {
-            var result = _service.ReadMediaFile(fileName);
+            var result = await _service.ReadMediaFile(fileName);
 
             if (disposition == Dispositions.Inline)
             {
@@ -43,7 +44,7 @@ namespace FileManager.Controllers
         /// <param name="disposition">attachment ou inline</param>
         /// <returns>Arquivo de Dados</returns>
         [HttpGet("Temp/{fileName}")]
-        public ActionResult<FileManagetDto> ReadTempFile(string fileName, string downloadName, Dispositions disposition)
+        public ActionResult<FileManagerDto> ReadTempFile(string fileName, string downloadName, Dispositions disposition)
         {
             var result = _service.ReadTempFile(fileName);
 
@@ -59,12 +60,14 @@ namespace FileManager.Controllers
         /// Carrega arquivo de dados.
         /// </summary>
         /// <param name="file">Arquivo de Dados</param>
+        /// <param name="access">Acesso ao arquivo</param>
         /// <param name="cancellationToken">Token de cancelamento da requisição</param>
         /// <returns></returns>
         [HttpPost]
-        public async Task<ActionResult<FileManagerResponseDto>> UploadMedia(IFormFile file, CancellationToken cancellationToken)
+        [Produces("application/json")]
+        public async Task<ActionResult<FileManagerResponseDto>> UploadMedia(IFormFile file, FileAccess access = FileAccess.Private, CancellationToken cancellationToken = default)
         {
-            var result = await _service.UploadMediaFile(file, cancellationToken);
+            var result = await _service.UploadMediaFile(file, access, cancellationToken);
             return CreatedAtAction(nameof(ReadFile), new { fileName = result.FileName }, result);
         }
 
@@ -75,6 +78,7 @@ namespace FileManager.Controllers
         /// <param name="cancellationToken">Token de cancelamento da requisição</param>
         /// <returns></returns>
         [HttpPost("Temp")]
+        [Produces("application/json")]
         public async Task<ActionResult<FileManagerResponseDto>> UploadTempMedia(IFormFile file, CancellationToken cancellationToken)
         {
             var result = await _service.UploadTempFile(file, cancellationToken);
@@ -86,6 +90,7 @@ namespace FileManager.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpPost("Large")]
+        [Produces("application/json")]
         public async Task<ActionResult<FileManagerResponseDto>> UploadLargeMedia()
         {
             var request = HttpContext.Request;
@@ -109,6 +114,7 @@ namespace FileManager.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpPost("Temp/Large")]
+        [Produces("application/json")]
         public async Task<ActionResult<FileManagerResponseDto>> UploadLargeTempMedia()
         {
             var request = HttpContext.Request;
@@ -133,6 +139,7 @@ namespace FileManager.Controllers
         /// <param name="fileName">Nome do Arquivo de Dados</param>
         /// <param name="cancellationToken">Token de cancelamento da requisição</param>
         [HttpDelete("{fileName}")]
+        [Produces("application/json")]
         public async Task<IActionResult> DeleteMedia(string fileName, CancellationToken cancellationToken)
         {
             await _service.DeleteMediaFile(fileName, cancellationToken);

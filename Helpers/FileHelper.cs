@@ -2,13 +2,16 @@
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
+using System.IO;
 using System.Net;
+using System.Security.Cryptography;
+using System.Threading;
 
 namespace FileManager.Helpers
 {
     public static class FileHelper
     {
-        public static FileManagetDto ReadFile(string fileName, string path)
+        public static FileManagerDto ReadFile(string fileName, string path)
         {
             string trustedFileName = WebUtility.HtmlEncode(fileName);
             string filePath = Path.Combine(path, trustedFileName);
@@ -20,10 +23,10 @@ namespace FileManager.Helpers
             if (!provider.TryGetContentType(filePath, out string contentType))
                 throw new BadHttpRequestException("Arquivo em formato não reconhecido");
 
-            return new FileManagetDto(trustedFileName, filePath, contentType);
+            return new FileManagerDto(trustedFileName, filePath, contentType);
         }
 
-        public static async Task<FileManagetDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
+        public static async Task<FileManagerPostDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -40,12 +43,16 @@ namespace FileManager.Helpers
                 throw new BadHttpRequestException("Arquivo em formato não reconhecido");
 
             using var stream = File.Create(filePath);
+            using var mySHA256 = SHA256.Create();
             await file.CopyToAsync(stream, cancellationToken);
 
-            return new FileManagetDto(trustedFileName, filePath, contentType);
+            await stream.FlushAsync(CancellationToken.None);
+            stream.Position = 0;
+
+            return new FileManagerPostDto(trustedFileName, filePath, contentType, await mySHA256.ComputeHashAsync(stream, CancellationToken.None));
         }
 
-        public static async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path, Action<string> validateType, Action<long> validateSize)
+        public static async Task<FileManagerPostDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path, Action<string> validateType, Action<long> validateSize)
         {
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -77,9 +84,13 @@ namespace FileManager.Helpers
                         }
 
                         using var fileStream = File.Create(filePath);
+                        using var mySHA256 = SHA256.Create();
                         await fileStream.WriteAsync(fileArray);
 
-                        return new FileManagetDto(trustedFileName, filePath, contentType);
+                        await fileStream.FlushAsync();
+                        fileStream.Position = 0;
+
+                        return new FileManagerPostDto(trustedFileName, filePath, contentType, await mySHA256.ComputeHashAsync(fileStream));
                     }
                 }
                 section = await reader.ReadNextSectionAsync();

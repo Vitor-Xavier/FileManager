@@ -3,10 +3,13 @@ using FileManager.Helpers;
 using FileManager.Models;
 using FileManager.Options;
 using FileManager.Repositories.StorageFiles;
+using FileManager.Repositories.Users;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using System.Net;
+using System.Security.Claims;
+using FileAccess = FileManager.Models.FileAccess;
 
 namespace FileManager.Services.Data
 {
@@ -16,18 +19,38 @@ namespace FileManager.Services.Data
 
         private readonly IStorageFileRepository _storageFileRepository;
 
-        public DataService(IOptionsSnapshot<DataOptions> options, IStorageFileRepository storageFileRepository)
+        private readonly IUserRepository _userRepository;
+
+        private readonly IHttpContextAccessor _accessor;
+
+        public DataService(IOptionsSnapshot<DataOptions> options,
+                           IStorageFileRepository storageFileRepository,
+                           IUserRepository userRepository,
+                           IHttpContextAccessor accessor)
         {
             _options = options.Value;
             _storageFileRepository = storageFileRepository;
+            _userRepository = userRepository;
+            _accessor = accessor;
         }
 
         #region Read
-        public FileManagetDto ReadDataFile(string fileName) => ReadFile(fileName, _options.BasePath);
+        public async Task<FileManagerDto> ReadDataFile(string fileName, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-        public FileManagetDto ReadTempFile(string fileName) => ReadFile(fileName, _options.TempPath);
+            string username = _accessor?.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
 
-        private static FileManagetDto ReadFile(string fileName, string path)
+            var storageFile = await _storageFileRepository.GetStorageFileAccessByName(fileName, cancellationToken);
+            if (username != storageFile.Owner && storageFile.Access == FileAccess.Private)
+                throw new FieldAccessException("Usuário sem permissão para acessar o arquivo");
+
+            return ReadFile(fileName, _options.BasePath);
+        }
+
+        public FileManagerDto ReadTempFile(string fileName) => ReadFile(fileName, _options.TempPath);
+
+        private static FileManagerDto ReadFile(string fileName, string path)
         {
             string trustedFileName = WebUtility.HtmlEncode(fileName);
             return FileHelper.ReadFile(trustedFileName, path);
@@ -35,16 +58,22 @@ namespace FileManager.Services.Data
         #endregion
 
         #region Upload
-        public async Task<FileManagerResponseDto> UploadDataFile(IFormFile file, CancellationToken cancellationToken = default)
+        public async Task<FileManagerResponseDto> UploadDataFile(IFormFile file, FileAccess access, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var fileData = await UploadFile(file, _options.BasePath, cancellationToken);
+
+            string username = _accessor?.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
+            var user = await _userRepository.GetUserByUsername(username, CancellationToken.None);
+
             StorageFile storageFile = new()
             {
                 FileName = fileData.FileName,
                 Path = fileData.FilePath,
-                Owner = "default",
+                Hash = fileData.Hash,
+                UserId = user.UserId,
+                Access = access,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
                 Deleted = false,
@@ -60,7 +89,7 @@ namespace FileManager.Services.Data
             return new FileManagerResponseDto(fileData.FileName);
         }
 
-        private async Task<FileManagetDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
+        private async Task<FileManagerPostDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -80,11 +109,15 @@ namespace FileManager.Services.Data
         public async Task<FileManagerResponseDto> UploadLargeDataFile(MultipartReader reader, MultipartSection section)
         {
             var fileData = await UploadLargeFile(reader, section, _options.BasePath);
+
+            string username = _accessor?.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
+            var user = await _userRepository.GetUserByUsername(username, CancellationToken.None);
+
             StorageFile storageFile = new()
             {
                 FileName = fileData.FileName,
                 Path = fileData.FilePath,
-                Owner = "default",
+                UserId = user.UserId,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
                 Deleted = false,
@@ -100,7 +133,7 @@ namespace FileManager.Services.Data
             return new FileManagerResponseDto(fileData.FileName);
         }
 
-        private async Task<FileManagetDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path)
+        private async Task<FileManagerPostDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path)
         {
             void validateType(string contentType)
             {

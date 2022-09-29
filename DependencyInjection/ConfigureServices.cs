@@ -1,8 +1,10 @@
 ﻿using FileManager.Context;
 using FileManager.Options;
 using FileManager.Repositories.StorageFiles;
+using FileManager.Repositories.Users;
 using FileManager.Services.Data;
 using FileManager.Services.Media;
+using FileManager.Services.Users;
 using Microsoft.EntityFrameworkCore;
 
 namespace FileManager.DependencyInjection
@@ -24,10 +26,12 @@ namespace FileManager.DependencyInjection
         {
             services.AddScoped<IDataService, DataService>();
             services.AddScoped<IMediaService, MediaService>();
+            services.AddScoped<IUserService, UserService>();
         }
 
         public static void RegisterRepositories(IServiceCollection services)
         {
+            services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IStorageFileRepository, StorageFileRepository>();
         }
 

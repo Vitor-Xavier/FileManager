@@ -36,6 +36,12 @@ namespace FileManager.Extensions
 							problemDetails.Status = StatusCodes.Status404NotFound;
 							problemDetails.Detail = fileNotFoundException.Message;
 						}
+						else if (exception is FieldAccessException accessException)
+						{
+                            problemDetails.Title = "Erro ao acessar arquivo";
+                            problemDetails.Status = StatusCodes.Status403Forbidden;
+                            problemDetails.Detail = accessException.Message;
+                        }
 						else
 						{
 							problemDetails.Title = exception.Message;
