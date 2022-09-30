@@ -73,7 +73,7 @@ namespace FileManager.Helpers
                         var provider = new FileExtensionContentTypeProvider();
                         if (!provider.TryGetContentType(filePath, out string contentType))
                             throw new BadHttpRequestException("Arquivo em formato não reconhecido");
-                        if (validateType is not null) validateType(trustedFileName);
+                        if (validateType is not null) validateType(contentType);
                         if (validateSize is not null) validateSize(section.Body.Length);
 
                         byte[] fileArray;
