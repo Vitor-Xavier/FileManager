@@ -126,7 +126,7 @@ namespace FileManager.Controllers
                 return new UnsupportedMediaTypeResult();
             }
 
-            var reader = new MultipartReader(mediaTypeHeader.Boundary.Value, Request.Body);
+            var reader = new MultipartReader(mediaTypeHeader.Boundary.Value.Trim('"'), Request.Body);
             var section = await reader.ReadNextSectionAsync();
 
             var result = await _service.UploadLargeTempFile(reader, section);
