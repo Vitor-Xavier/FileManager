@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 ConfigureServices.RegisterServices(builder.Services, builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 
+builder.Services.ConfigureCors();
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -22,6 +23,8 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<FileManagerContext>();
     context.Database.EnsureCreated();
 }
+
+app.UseCors("CorsPolicy");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
