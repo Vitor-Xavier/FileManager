@@ -26,7 +26,7 @@ namespace FileManager.Helpers
             return new FileManagerDto(trustedFileName, filePath, contentType);
         }
 
-        public static async Task<FileManagerPostDto> UploadFile(IFormFile file, string path, CancellationToken cancellationToken = default)
+        public static async Task<FileManagerPostDto> UploadFile(IFormFile file, string fileName, string path, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -35,7 +35,7 @@ namespace FileManager.Helpers
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
 
-            string trustedFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(file.FileName));
+            string trustedFileName = Path.ChangeExtension(fileName, Path.GetExtension(file.FileName));
             var filePath = Path.Combine(path, trustedFileName);
 
             var provider = new FileExtensionContentTypeProvider();
@@ -52,7 +52,7 @@ namespace FileManager.Helpers
             return new FileManagerPostDto(trustedFileName, filePath, contentType, await mySHA256.ComputeHashAsync(stream, CancellationToken.None));
         }
 
-        public static async Task<FileManagerPostDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string path, Action<string> validateType, Action<long> validateSize)
+        public static async Task<FileManagerPostDto> UploadLargeFile(MultipartReader reader, MultipartSection section, string fileName, string path, Action<string> validateType, Action<long> validateSize)
         {
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -67,7 +67,7 @@ namespace FileManager.Helpers
                         (!string.IsNullOrEmpty(contentDisposition.FileName.Value) ||
                         !string.IsNullOrEmpty(contentDisposition.FileNameStar.Value)))
                     {
-                        string trustedFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(contentDisposition.FileName.Value));
+                        string trustedFileName = Path.ChangeExtension(fileName, Path.GetExtension(contentDisposition.FileName.Value));
                         string filePath = Path.Combine(path, trustedFileName);
 
                         var provider = new FileExtensionContentTypeProvider();

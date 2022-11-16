@@ -101,7 +101,7 @@ namespace FileManager.Services.Media
             if (file.Length > _options.FileSizeLimit)
                 throw new BadHttpRequestException("Tamanho do arquivo excede o limite permitido");
 
-            return await FileHelper.UploadFile(file, path, cancellationToken);
+            return await FileHelper.UploadFile(file, Path.GetRandomFileName(), path, cancellationToken);
         }
         #endregion
 
@@ -146,7 +146,7 @@ namespace FileManager.Services.Media
                     throw new BadHttpRequestException("Tamanho do arquivo excede o permitido");
             }
 
-            return await FileHelper.UploadLargeFile(reader, section, path, validateType, validateSize);
+            return await FileHelper.UploadLargeFile(reader, section, Path.GetRandomFileName(), path, validateType, validateSize);
         }
         #endregion
 
