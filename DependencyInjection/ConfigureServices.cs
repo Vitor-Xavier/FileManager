@@ -4,6 +4,7 @@ using FileManager.Repositories.StorageFiles;
 using FileManager.Repositories.Users;
 using FileManager.Services.Data;
 using FileManager.Services.Media;
+using FileManager.Services.Tools;
 using FileManager.Services.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +27,7 @@ namespace FileManager.DependencyInjection
         {
             services.AddScoped<IDataService, DataService>();
             services.AddScoped<IMediaService, MediaService>();
+            services.AddScoped<IToolService, ToolService>();
             services.AddScoped<IUserService, UserService>();
         }
 
@@ -39,6 +41,7 @@ namespace FileManager.DependencyInjection
         {
             services.Configure<DataOptions>(configuration.GetSection(nameof(DataOptions)));
             services.Configure<MediaOptions>(configuration.GetSection(nameof(MediaOptions)));
+            services.Configure<ToolOptions>(configuration.GetSection(nameof(ToolOptions)));
         }
     }
 }
